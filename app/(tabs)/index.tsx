@@ -1,70 +1,95 @@
-import { Image, StyleSheet, Platform } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import ParallaxScrollView from "@/components/ParallaxScrollView";
+import { dark, light } from "@/theme/theme";
+import MainHeader from "@/components/main/main-header";
+import { View } from "react-native";
+import ToDo from "@/components/to-do/to-do";
+import BannerContainer from "@/components/to-do/banner";
+import AddToDoButton from "@/components/to-do/add-todo";
+import { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import FeedbackButton from "@/components/to-do/feedback-button";
 
 export default function HomeScreen() {
+  const [total, setTotal] = useState(0);
+  const [activities, setActivity] = useState([]);
+
+  //서버에서 오늘 한 활동들을 요청합니다.
+  useEffect(() => {
+    const prepare = async () => {
+      const apiKey = await AsyncStorage.getItem("api-key");
+      const res = await axios.get(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/record/get/${apiKey}`
+      );
+      const activitiesData = res.data.data;
+      setActivity(activitiesData);
+
+      const totalCarbon = activitiesData.reduce(
+        (
+          acc: number,
+          activity: { amount: number; carbonUsage: { amount: number } }
+        ) => {
+          return acc + activity.amount * activity.carbonUsage.amount;
+        },
+        0
+      );
+
+      setTotal(totalCarbon);
+    };
+
+    prepare();
+  }, []);
+
+  //light.colors.subBackground
+  //"#d24532"
+
   return (
     <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({ ios: 'cmd + d', android: 'cmd + m' })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
+      headerBackgroundColor={{
+        light: light.colors.subBackground,
+        dark: light.colors.subBackground,
+      }}
+      headerImage={<MainHeader gram={total} />}
+    >
+      <BannerContainer />
+      <View
+        style={{
+          minHeight: 500,
+        }}
+      >
+        <AddToDoButton />
+        {activities.map(
+          (
+            activity: {
+              id: number;
+              title: string;
+              amount: number;
+              carbonUsageId: number;
+              createdAt: string;
+              carbonUsage: {
+                id: number;
+                title: string;
+                amount: number;
+                unit: string;
+              };
+            },
+            i: number
+          ) => {
+            return (
+              <ToDo
+                title={activity.title}
+                amount={activity.amount.toString()}
+                unit={activity.carbonUsage.unit}
+                gram={(
+                  activity.carbonUsage.amount * activity.amount
+                ).toString()}
+                key={i}
+              />
+            );
+          }
+        )}
+        {activities.length !== 0 ? <FeedbackButton /> : null}
+      </View>
     </ParallaxScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});

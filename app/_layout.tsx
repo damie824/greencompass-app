@@ -1,36 +1,56 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/useColorScheme';
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+import { dark, light } from "@/theme/theme";
+import { Stack } from "expo-router";
+import { useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ThemeProvider } from "styled-components";
+import * as Update from "expo-updates";
+import axios from "axios";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
+  // 다크모드는 색이 완전히 구현되지 않았으므로 임시로 막아두었습니다.
+  // const isDark = useColorScheme() === "dark";
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
+    const prepare = async () => {
+      const apiKey = await AsyncStorage.getItem("api-key");
+      console.log(apiKey);
+      if (!apiKey) {
+        const res = await axios.get(
+          `${process.env.EXPO_PUBLIC_API_URL}/api/key/new`
+        );
+        const newKey = res.data.data;
+        await AsyncStorage.setItem("api-key", newKey);
+        Update.reloadAsync();
+      }
+    };
 
-  if (!loaded) {
-    return null;
-  }
+    prepare().catch((error: any) => {
+      console.warn(error.message);
+    });
+  }, []);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider theme={light}>
       <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
+        <Stack.Screen
+          name="(tabs)"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="new-todo"
+          options={{
+            title: "새로운 작업 추가하기",
+            presentation: "modal",
+          }}
+        />
+        <Stack.Screen
+          name="get-feedback"
+          options={{
+            title: "오늘 하루 피드백 받기",
+            presentation: "modal",
+          }}
+        />
       </Stack>
     </ThemeProvider>
   );
